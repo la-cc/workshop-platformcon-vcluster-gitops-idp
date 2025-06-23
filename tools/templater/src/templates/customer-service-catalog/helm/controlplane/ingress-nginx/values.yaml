@@ -1,0 +1,22 @@
+ingress-nginx:
+  controller:
+    tolerations:
+      - key: "role"
+        operator: "Equal"
+        value: "infra"
+        effect: "NoSchedule"
+    admissionWebhooks:
+      patch:
+        tolerations:
+          - key: "role"
+            operator: "Equal"
+            value: "infra"
+            effect: "NoSchedule"
+    defaultBackend:
+      tolerations:
+        - key: "role"
+          operator: "Equal"
+          value: "infra"
+          effect: "NoSchedule"
+
+namespace: {}

@@ -1,0 +1,9 @@
+clusterSecretStores: {}
+namespace: {}
+external-secrets:
+  global:
+    tolerations:
+      - key: "role"
+        operator: "Equal"
+        value: "infra"
+        effect: "NoSchedule"

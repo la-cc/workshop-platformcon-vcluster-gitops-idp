@@ -1,0 +1,57 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: ingress-nginx
+  namespace: argocd
+spec:
+  generators:
+  - clusters:
+      selector:
+        matchLabels:
+          ingress-nginx: enabled
+  syncPolicy:
+    preserveResourcesOnDeletion: false
+  template:
+    metadata:
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: .;..
+      name: '{{name}}-ingress-nginx'
+    spec:
+      destination:
+        name: '{{name}}'
+        namespace: ingress-nginx
+      ignoreDifferences:
+      - group: apps
+        jsonPointers:
+        - /spec/replicas
+        kind: Deployment
+      - group: apps
+        jsonPointers:
+        - /spec/replicas
+        kind: StatefulSet
+      project: default
+      sources:
+      - ref: valuesRepo
+        repoURL: https://github.com/la-cc/workshop-platformcon-vcluster-gitops-idp.git
+        targetRevision: main
+      - helm:
+          ignoreMissingValueFiles: true
+          releaseName: ingress-nginx
+          valueFiles:
+          - values.yaml
+          - $valuesRepo/customer-service-catalog/helm/{{name}}/ingress-nginx/values.yaml
+        path: managed-service-catalog/helm/ingress-nginx
+        repoURL: https://github.com/la-cc/workshop-platformcon-vcluster-gitops-idp.git
+        targetRevision: main
+      syncPolicy:
+        automated:
+          allowEmpty: true
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=false
+        - PruneLast=true
+        - FailOnSharedResource=true
+        - RespectIgnoreDifferences=true
+        - ApplyOutOfSyncOnly=true
+        - ServerSideApply=true

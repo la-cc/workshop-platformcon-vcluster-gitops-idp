@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  labels:
+    argocd.argoproj.io/instance: controlplane-argocd
+  name: dex
+  namespace: argocd
+spec:
+  generators:
+  - clusters:
+      selector:
+        matchLabels:
+          dex: enabled
+  syncPolicy:
+    preserveResourcesOnDeletion: false
+  template:
+    metadata:
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: .;..
+      name: '{{name}}-dex'
+    spec:
+      destination:
+        name: '{{name}}'
+        namespace: dex
+      ignoreDifferences:
+      - group: apps
+        jsonPointers:
+        - /spec/replicas
+        kind: Deployment
+      - group: apps
+        jsonPointers:
+        - /spec/replicas
+        kind: StatefulSet
+      project: default
+      sources:
+      - ref: valuesRepo
+        repoURL: https://github.com/la-cc/workshop-platformcon-vcluster-gitops-idp.git
+        targetRevision: main
+      - helm:
+          ignoreMissingValueFiles: true
+          releaseName: dex
+          valueFiles:
+          - values.yaml
+          - $valuesRepo/customer-service-catalog/helm/{{name}}/dex/values.yaml
+        path: managed-service-catalog/helm/dex
+        repoURL: https://github.com/la-cc/workshop-platformcon-vcluster-gitops-idp.git
+        targetRevision: main
+      syncPolicy:
+        automated:
+          allowEmpty: true
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=false
+        - PruneLast=true
+        - FailOnSharedResource=true
+        - RespectIgnoreDifferences=true
+        - ApplyOutOfSyncOnly=true
+        - ServerSideApply=true

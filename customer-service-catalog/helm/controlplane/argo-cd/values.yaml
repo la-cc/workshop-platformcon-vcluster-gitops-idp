@@ -1,0 +1,41 @@
+argo-cd:
+  global:
+    tolerations:
+      - key: "role"
+        operator: "Equal"
+        value: "infra"
+        effect: "NoSchedule"
+    domain: argocd.platformcon.stackit.run
+    imagePullSecrets:
+      - name: image-pull-secret
+    revisionHistoryLimit: 5
+  dex:
+    enabled: true
+  configs:
+    cm:
+      dex.config: |
+        connectors:
+          - type: github
+            id: github
+            name: GitHub
+            config:
+              clientID: $oauth-credentials:client-id
+              clientSecret: $oauth-credentials:client-secret
+              orgs:
+                - name: la-demos
+      url: https://argocd.platformcon.stackit.run
+    params:
+      server.insecure: true
+    rbac:
+      policy.csv: |
+        g, la-demos:g-gitops, role:admin
+      policy.default: role:readonly
+  server:
+    ingress:
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        nginx.ingress.kubernetes.io/backend-protocol: HTTP
+        nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      enabled: true
+      ingressClassName: nginx
+      tls: true

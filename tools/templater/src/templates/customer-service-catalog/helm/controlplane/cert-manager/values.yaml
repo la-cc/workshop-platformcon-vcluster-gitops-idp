@@ -1,0 +1,29 @@
+clusterIssuer:
+  email: artem.lajko@iits-consulting.de
+  name: letsencrypt-prod
+  server: https://acme-v02.api.letsencrypt.org/directory
+
+cert-manager:
+  tolerations:
+    - key: "role"
+      operator: "Equal"
+      value: "infra"
+      effect: "NoSchedule"
+  webhook:
+    tolerations:
+      - key: "role"
+        operator: "Equal"
+        value: "infra"
+        effect: "NoSchedule"
+  cainjector:
+    tolerations:
+      - key: "role"
+        operator: "Equal"
+        value: "infra"
+        effect: "NoSchedule"
+  startupapicheck:
+    tolerations:
+      - key: "role"
+        operator: "Equal"
+        value: "infra"
+        effect: "NoSchedule"

@@ -1,0 +1,6 @@
+clusters:
+  - project: project-x
+    groupRbac: "la-demos:g-gitops"
+    argocd: "disbaled"
+    nodePools:
+      - isolated: false

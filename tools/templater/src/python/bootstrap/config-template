@@ -1,0 +1,238 @@
+#!/usr/bin/env python3
+import getopt
+import os
+import sys
+import yaml
+import shutil
+import datetime
+from jinja2 import Environment, FileSystemLoader
+from schema import SchemaUnexpectedTypeError, SchemaError
+
+from schemas import config
+
+usage = """\
+Usage:
+  config-template [OPTIONS]
+
+Options:
+  --help, -h               Show this help message.
+  --config-file, -c        Path to the config.yaml (Default: ./config.yaml).
+  --work_dir, -w           Working directory (Default: current directory).
+  --template-path, -t      Path to the Jinja2 templates (Default: ./tools/templater/src/templates).
+
+  --apps                   Render 'app-vcluster-example.yaml.tpl' into apps/.
+  --helm                   Render 'vcluster-example' helm folders per cluster using Jinja2.
+  --terraform              Render 'main.tf.tpl' with nodepool data.
+  --all                    Render all templates (apps, helm, terraform).
+"""
+
+
+def main(argv):
+    if len(argv) == 0:
+        print(usage)
+        sys.exit(0)
+
+    work_dir = ""
+    config_file_path = ""
+    templates_path = ""
+
+    render_apps = False
+    render_helm = False
+    render_terraform = False
+    render_all = False
+
+    try:
+        opts, args = getopt.getopt(
+            argv,
+            "hf:t:w:c:",
+            ["help", "config-file=", "work_dir=", "template-path=",
+             "apps", "helm", "terraform", "all"]
+        )
+    except getopt.GetoptError:
+        print(usage)
+        sys.exit(2)
+
+    for opt, arg in opts:
+        if opt in ("-h", "--help"):
+            print(usage)
+            sys.exit()
+        if opt in ("-c", "--config-file"):
+            config_file_path = arg
+        if opt in ("-w", "--work_dir"):
+            work_dir = arg
+        if opt in ("-t", "--template-path"):
+            templates_path = arg
+        if opt == "--apps":
+            render_apps = True
+        if opt == "--helm":
+            render_helm = True
+        if opt == "--terraform":
+            render_terraform = True
+        if opt == "--all":
+            render_apps = render_helm = render_terraform = True
+
+    if not (render_apps or render_helm or render_terraform):
+        print(usage)
+        sys.exit(0)
+
+    if not work_dir:
+        work_dir = os.path.realpath(os.getcwd())
+
+    if not templates_path:
+        templates_path = os.path.join(work_dir, "tools/templater/src/templates")
+
+    if not config_file_path:
+        config_file_path = os.path.join(work_dir, "config.yaml")
+
+    try:
+        with open(config_file_path) as cf:
+            configfile = yaml.load(cf, Loader=yaml.FullLoader)
+
+        validated_config = config.config_schema.validate(configfile)
+        validated_config["timestamp"] = datetime.date.today()
+
+    except (SchemaUnexpectedTypeError, SchemaError) as e:
+        sys.exit(e.code)
+    except Exception as e:
+        print(str(e))
+        sys.exit(1)
+
+    env = Environment(
+        loader=FileSystemLoader(searchpath=templates_path)
+    )
+
+    if render_apps:
+        cleanup_apps_directory(work_dir)
+        render_app_templates(validated_config, env, work_dir)
+
+    if render_helm:
+        cleanup_helm_vcluster_dirs(work_dir)
+        render_helm_vcluster_dirs(validated_config, env, templates_path, work_dir)
+
+    if render_terraform:
+        render_terraform_main(validated_config, work_dir, templates_path)
+
+
+def cleanup_apps_directory(work_dir):
+    apps_dir = os.path.join(work_dir, "apps")
+    if os.path.isdir(apps_dir):
+        for file in os.listdir(apps_dir):
+            file_path = os.path.join(apps_dir, file)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+        print(f"Cleaned apps directory: {apps_dir}")
+
+
+def cleanup_helm_vcluster_dirs(work_dir):
+    helm_dir = os.path.join(work_dir, "customer-service-catalog", "helm")
+    if os.path.isdir(helm_dir):
+        for entry in os.listdir(helm_dir):
+            path = os.path.join(helm_dir, entry)
+            if os.path.isdir(path) and entry != "controlplane":
+                shutil.rmtree(path)
+        print(f"Cleaned vcluster folders in: {helm_dir}")
+
+
+def render_app_templates(config_data, env, work_dir):
+    template_name = "apps/app-vcluster-example.yaml.tpl"
+    try:
+        template = env.get_template(template_name)
+    except Exception as e:
+        print(f"Template not found: {template_name}")
+        return
+
+    apps_dir = os.path.join(work_dir, "apps")
+    os.makedirs(apps_dir, exist_ok=True)
+
+    for cluster in config_data["clusters"]:
+        project_id = cluster["project"]
+        filename = f"app-vcluster-{project_id}.yaml"
+        filepath = os.path.join(apps_dir, filename)
+
+        compiled_data = config_data.copy()
+        compiled_data["cluster"] = cluster
+
+        rendered = template.render(compiled_data)
+
+        if rendered.strip():
+            with open(filepath, "w") as f:
+                f.write(rendered)
+            print(f"Generated {filepath}")
+        else:
+            print(f"Skipped empty output for {filename}")
+
+    # Copy and render .gitkeep.tpl → .gitkeep
+    gitkeep_tpl_path = os.path.join(env.loader.searchpath[0], "apps", ".gitkeep.tpl")
+    gitkeep_out_path = os.path.join(apps_dir, ".gitkeep")
+
+    if os.path.exists(gitkeep_tpl_path):
+        with open(gitkeep_tpl_path) as f:
+            content = f.read()
+
+        template = env.from_string(content)
+        rendered = template.render(config_data)
+
+        with open(gitkeep_out_path, "w") as f:
+            f.write(rendered)
+
+        print(f"Copied .gitkeep → {gitkeep_out_path}")
+
+
+def render_helm_vcluster_dirs(config_data, env, templates_path, work_dir):
+    src_base = os.path.join(templates_path, "customer-service-catalog", "helm", "vcluster-example")
+    dest_base = os.path.join(work_dir, "customer-service-catalog", "helm")
+
+    if not os.path.exists(src_base):
+        print(f"Source helm directory not found: {src_base}")
+        return
+
+    for cluster in config_data["clusters"]:
+        project_id = cluster["project"]
+        dest_dir = os.path.join(dest_base, f"vcluster-{project_id}")
+        os.makedirs(dest_dir, exist_ok=True)
+
+        for root, _, files in os.walk(src_base):
+            for file in files:
+                rel_dir = os.path.relpath(root, src_base)
+                src_file = os.path.join(root, file)
+                target_dir = os.path.join(dest_dir, rel_dir)
+                os.makedirs(target_dir, exist_ok=True)
+
+                with open(src_file) as f:
+                    content = f.read()
+
+                template = env.from_string(content)
+                rendered = template.render(config_data | {"cluster": cluster})
+
+                filename_rendered = file
+                if filename_rendered.endswith(".tpl"):
+                    filename_rendered = filename_rendered[:-4]
+                target_file = os.path.join(target_dir, filename_rendered)
+
+                with open(target_file, "w") as f:
+                    f.write(rendered)
+                print(f"Rendered {target_file}")
+
+
+def render_terraform_main(config_data, work_dir, templates_path):
+    tf_template_path = os.path.join(templates_path, "customer-service-catalog", "terraform", "controlplane", "public-cloud", "main.tf.tpl")
+    output_path = os.path.join(work_dir, "customer-service-catalog", "terraform", "controlplane", "public-cloud", "main.tf")
+
+    if not os.path.isfile(tf_template_path):
+        print(f"No terraform template found: {tf_template_path}")
+        return
+
+    env = Environment(loader=FileSystemLoader(os.path.dirname(tf_template_path)))
+    template = env.get_template(os.path.basename(tf_template_path))
+
+    rendered = template.render(config_data)
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w") as f:
+        f.write(rendered)
+
+    print(f"Rendered Terraform main.tf to {output_path}")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
