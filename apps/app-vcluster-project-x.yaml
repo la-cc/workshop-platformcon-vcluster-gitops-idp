@@ -20,7 +20,7 @@ spec:
           - "values.yaml"
         values: |
           externalSecret:
-            enabled: true
+            enabled: false
           namespaceName: vcluster-project-x
           rbac:
             groupName: "la-demos:g-gitops"
