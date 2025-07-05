@@ -99,7 +99,7 @@ module "public-cloud" {
             effect = "NoSchedule"
           }
     ]
-  }, 
+  }
 
 
   ]
