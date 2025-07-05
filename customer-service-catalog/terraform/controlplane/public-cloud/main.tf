@@ -79,7 +79,7 @@ module "public-cloud" {
       }
 
       taints = []
-    }
+    },
 
 
   ]
