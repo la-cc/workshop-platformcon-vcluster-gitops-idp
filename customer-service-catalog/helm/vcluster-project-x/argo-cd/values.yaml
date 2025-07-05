@@ -2,6 +2,13 @@ argo-cd:
   dex:
     enabled: false
   global:
+    tolerations:
+      - key: "project"
+        operator: "Equal"
+        value: "project-x"
+        effect: "NoSchedule"
+    nodeSelector:
+      project: "project-x"
     domain: argocd.vcluster-project-x.platformcon.stackit.run
     imagePullSecrets:
       - name: image-pull-secret

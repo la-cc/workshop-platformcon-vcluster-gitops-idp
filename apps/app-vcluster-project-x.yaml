@@ -26,6 +26,15 @@ spec:
             groupName: "la-demos:g-gitops"
           vcluster:
             controlPlane:
+              coredns:
+                deployment:
+                  tolerations:
+                    - key: "project"
+                      operator: "Equal"
+                      value: "project-x"
+                      effect: "NoSchedule"
+                  nodeSelector:
+                    project: "project-x"
               proxy:
                 extraSANs:
                   - vcluster-project-x.platformcon.stackit.run
@@ -40,6 +49,27 @@ spec:
                   cert-manager.io/cluster-issuer: letsencrypt-prod
                 spec:
                   ingressClassName: nginx
+              statefulSet:
+                scheduling:
+                  tolerations:
+                    - key: "project"
+                      operator: "Equal"
+                      value: "project-x"
+                      effect: "NoSchedule"
+                  nodeSelector:
+                    project: "project-x"
+              backingStore:
+                etcd:
+                  deploy:
+                    statefulSet:
+                      scheduling:
+                        tolerations:
+                          - key: "project"
+                            operator: "Equal"
+                            value: "project-x"
+                            effect: "NoSchedule"
+                        nodeSelector:
+                          project: "project-x"
   project: default
   syncPolicy:
     automated:

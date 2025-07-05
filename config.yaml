@@ -3,4 +3,4 @@ clusters:
     groupRbac: "la-demos:g-gitops"
     argocd: "enabled"
     nodePools:
-      - isolated: false
+      - isolated: true
