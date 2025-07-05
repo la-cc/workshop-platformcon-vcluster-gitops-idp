@@ -231,6 +231,56 @@ Same model. Zero extra effort.
 
 ---
 
+## Demos:
+
+You can see the demos from up in action below.
+
+### 1: just a vCluster
+
+Create a vCluster in a shared node pool, no GitOps, no frills.
+
+![demo-1](zimages/demo-1.gif)
+
+Connect to it, check namespaces.
+
+![demo-1-1](zimages/demo-1-1.gif)
+
+### 2: vCluster + GitOps
+
+Create a vCluster with GitOps enabled, using Argo CD and ApplicationSets.
+
+![demo-2](zimages/demo-2.gif)
+
+### 3: vCluster + GitOps + Isolated Nodepool
+
+Create a vCluster with GitOps and an isolated node pool.
+
+Bootstrap the node pool with Terraform.
+
+![demo-3](zimages/demo-3.gif)
+
+Commit and push, so Argo CD can redeploy vCluster and Argo CD to the new node pool.
+
+![demo-3-1](zimages/demo-3-1.gif)
+
+Check the new node pool, see the vCluster running there.
+
+![demo-3-2](zimages/demo-3-2.gif)
+
+### 4: New Project Y: vCluster
+
+Create a new project with a vCluster, GitOps disabled, and an isolated node pool disabled (diff from the demo description above).
+
+![demo-4](zimages/demo-4.gif)
+
+### 5: Cleanup Project Y
+
+Cleanup the project Y by removing few lines.
+
+![demo-5](zimages/demo-5.gif)
+
+---
+
 **BE A REAL PLATFORM ENGINEER.**
 Not a ticket-pusher. Not a YAML monkey.
 Build tools, not toil.
